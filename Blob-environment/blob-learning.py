@@ -170,14 +170,15 @@ for episode in range(EPISODES):
         q_table[obs][action] = new_q
 
         if show:
-            env = np.zeros((SIZE, SIZE, 3), dtype=np.uint8)  # starts an rbg of our size
-            env[food.x][food.y] = d[FOOD_N]  # sets the food location tile to green color
-            env[player.x][player.y] = d[PLAYER_N]  # sets the player tile to blue
-            env[enemy.x][enemy.y] = d[ENEMY_N]  # sets the enemy location to red
-            img = Image.fromarray(env, 'RGB')  # reading to rgb. Apparently. Even tho color definitions are bgr. ???
-            img = img.resize((300, 300))  # resizing so we can see our agent in all its glory.
-            cv2.imshow("image", np.array(img))  # show it!
-            if reward == FOOD_REWARD or reward == -ENEMY_PENALTY:  # crummy code to hang at the end if we reach abrupt end for good reasons or not.
+            env = np.zeros((SIZE, SIZE, 3), dtype=np.uint8)             # start an rbg of size
+            env[food.x][food.y] = d[FOOD_N]                             # set the food location tile to green color
+            env[player.x][player.y] = d[PLAYER_N]                       # set the player tile to blue
+            env[enemy.x][enemy.y] = d[ENEMY_N]                          # set the enemy location to red
+            img = Image.fromarray(env, 'RGB')                           # read to rgb
+            img = img.resize((300, 300))                                # resizing so we can see our agent in all its glory.
+            cv2.imshow("image", np.array(img))                          # Render the image
+            
+            if reward == FOOD_REWARD or reward == -ENEMY_PENALTY:       # Handling of abrupt ending
                 if cv2.waitKey(500) & 0xFF == ord('q'):
                     break
             else:
