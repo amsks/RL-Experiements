@@ -3,26 +3,32 @@
 '''
 	State = (Position, velocity)
 	Actions = {
-		0 - Push teh car left 
+		0 - Push the car left 
 		1 - Do nothing 
 		2 - Push the car right
 	}
 	reward = -1 till agent reaches the goal
 
-
+    TODO: -> Reward shaping
+          -> Plan in state state space
+          -> Euclidean distances  
 '''
 
 import gym
+import math
 import numpy as np
 import matplotlib.pyplot as plt
 
 
 env = gym.make("MountainCar-v0")
 
+# F = np.abs(env.goal_position - env.agent_position)
+
+
 LEARNING_RATE = 0.1
 
 DISCOUNT = 0.95
-EPISODES = 35000
+EPISODES = 25000
 SHOW_EVERY = 10000
 STAT_EVERY = 100
 
@@ -37,7 +43,7 @@ epsilon = 1  # not a constant, qoing to be decayed
 START_EPSILON_DECAYING = 1
 # END_EPSILON_DECAYING = EPISODES
 END_EPSILON_DECAYING = EPISODES//2
-epsilon_decay_value = epsilon/(END_EPSILON_DECAYING - START_EPSILON_DECAYING)
+epsilon_decay_value = epsilon/np.abs(END_EPSILON_DECAYING - START_EPSILON_DECAYING)
 
 # Reward tracking mechanism
 ep_rewards = []
@@ -49,13 +55,48 @@ aggr_ep_rewards = {
 }
 
 #Function to get the discrete value of a Q state
+
 def get_discrete_state(state):
     discrete_state = (state - env.observation_space.low)/discrete_os_win_size
     return tuple(discrete_state.astype(np.int))  # we use this tuple to look up the 3 Q values for the available actions in the q-table
 
 
+def height(position):
+    low = - 0.85
+    high = 0.5
+    
+    if position < low:
+        position = low + np.abs(position - low)    
+
+    return_val = ((position - low)/(high - low)) - 1
+    return return_val 
+
+def energy(position):
+    source = -0.85
+    potential_enery = position - source
+    return potential_enery
+
+# Wrapper to modify the rewards
+class RewardWrapper(gym.Wrapper):
+    def __init__(self, env):
+        super().__init__(env)
+        self.env = env
+        
+    def step(self, action):
+        next_state, reward, done, info = self.env.step(action)
+        # Reward Shaping
+        # reward = next_state[0] - env.goal_position
+        # reward = height(next_state[0])
+        # print(env.observation_space.low)
+        return next_state, reward, done, info
+
+
+env = RewardWrapper(env)
+
+
 for episode in range(EPISODES):
     episode_reward = 0
+    state = env.reset()
     discrete_state = get_discrete_state(env.reset())
     done = False
 
@@ -78,8 +119,11 @@ for episode in range(EPISODES):
 
 
         new_state, reward, done, _ = env.step(action)
-        episode_reward += reward
         new_discrete_state = get_discrete_state(new_state)
+
+        # reward = reward + np.abs(DISCOUNT*new_discrete_state[0] - discrete_state[0])
+        
+        episode_reward += reward
 
         if episode % SHOW_EVERY == 0:
             env.render()
@@ -105,7 +149,7 @@ for episode in range(EPISODES):
         elif new_state[0] >= env.goal_position:
             #q_table[discrete_state + (action,)] = reward
             q_table[discrete_state + (action,)] = 0
-            # print(f"Done on episode: {episode}" )
+            print(f"Done on episode: {episode}" )
         discrete_state = new_discrete_state
 
     # Decaying is being done every episode if episode number is within decaying range
