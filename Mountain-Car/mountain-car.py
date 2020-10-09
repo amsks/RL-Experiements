@@ -28,8 +28,8 @@ env = gym.make("MountainCar-v0")
 LEARNING_RATE = 0.1
 
 DISCOUNT = 0.95
-EPISODES = 25000
-SHOW_EVERY = 10000
+EPISODES = 35000
+SHOW_EVERY = 1000
 STAT_EVERY = 100
 
 # Q-table Settings
@@ -44,6 +44,11 @@ START_EPSILON_DECAYING = 1
 # END_EPSILON_DECAYING = EPISODES
 END_EPSILON_DECAYING = EPISODES//2
 epsilon_decay_value = epsilon/np.abs(END_EPSILON_DECAYING - START_EPSILON_DECAYING)
+EPSILON_MINIMUM = 0.01
+
+victory_counter = 0
+first = True
+first_victory = 0
 
 # Reward tracking mechanism
 ep_rewards = []
@@ -71,10 +76,29 @@ def height(position):
     return_val = ((position - low)/(high - low)) - 1
     return return_val 
 
-def energy(position):
-    source = -0.85
-    potential_enery = position - source
-    return potential_enery
+def height2(x_position):
+    x_low = - 0.85
+    x_high = 0.5
+
+    y_low = -0.5
+    y_high = + 0.5
+
+    if x_position < x_low :
+        x_position = x_low + np.abs(x_position - x_low)
+
+    slope = (y_high - y_low)/((x_high - x_low)**3) 
+
+    y_position = slope * ((x_position - x_low)**3) + y_low
+
+    return y_position - 1
+
+
+def Phi(position):
+    
+    output = 0.5 * (height(env.goal_position) - height(position))/0.8
+
+
+    return output
 
 # Wrapper to modify the rewards
 class RewardWrapper(gym.Wrapper):
@@ -86,7 +110,8 @@ class RewardWrapper(gym.Wrapper):
         next_state, reward, done, info = self.env.step(action)
         # Reward Shaping
         # reward = next_state[0] - env.goal_position
-        # reward = height(next_state[0])
+        reward = height2(next_state[0])
+        # reward = DISCOUNT * height(next_state)
         # print(env.observation_space.low)
         return next_state, reward, done, info
 
@@ -119,6 +144,14 @@ for episode in range(EPISODES):
 
 
         new_state, reward, done, _ = env.step(action)
+
+        reward = DISCOUNT * height2(new_state[0]) - height2(state[0]) - 1
+
+        # next_state = np.reshape(new_state, (1, 2))
+        # curr_state = np.reshape(state, (1, 2))
+        # #Customised reward function
+        # reward = 100*((math.sin(3*next_state[0,0]) * 0.0025 + 0.5 * next_state[0,1] * next_state[0,1]) - (math.sin(3*curr_state[0,0]) * 0.0025 + 0.5 * curr_state[0,1] * curr_state[0,1])) 
+
         new_discrete_state = get_discrete_state(new_state)
 
         # reward = reward + np.abs(DISCOUNT*new_discrete_state[0] - discrete_state[0])
@@ -150,11 +183,21 @@ for episode in range(EPISODES):
             #q_table[discrete_state + (action,)] = reward
             q_table[discrete_state + (action,)] = 0
             print(f"Done on episode: {episode}" )
+            victory_counter += 1 
+
+            if first:
+                first_victory = episode
+                first = False
+
         discrete_state = new_discrete_state
 
     # Decaying is being done every episode if episode number is within decaying range
-    if END_EPSILON_DECAYING >= episode >= START_EPSILON_DECAYING:
+    if END_EPSILON_DECAYING >= episode >= START_EPSILON_DECAYING and epsilon > EPSILON_MINIMUM:
         epsilon -= epsilon_decay_value
+    else:
+        epsilon = EPSILON_MINIMUM
+
+
 
     ep_rewards.append(episode_reward)
 
@@ -169,6 +212,7 @@ for episode in range(EPISODES):
         aggr_ep_rewards['min'].append(min(ep_rewards[-STAT_EVERY:]))
 
         # np.save(f"qtables/{episode}-qtable.npy", q_table)
+print(f"Total Victories: {victory_counter}, First Victory : {first_victory}" )
 
 env.close()
 
